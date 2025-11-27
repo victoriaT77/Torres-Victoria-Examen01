@@ -1,6 +1,13 @@
 package tvHormigas;
 
-public abstract class tvAlimento {
-    public abstract String toString();
-    
+public class tvAlimento {
+    private String nombre;
+
+    public tvAlimento(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
 }

@@ -43,11 +43,6 @@ public class tvController {
         System.out.println("==========[*]COORDENADAS UCRANEANAS======================");
     }
 
-    /**
-     * Lee y parsea el CSV devolviendo las filas.
-     * Conserva espacios tal cual y soporta campos multilínea entre comillas.
-     * Actualiza bytesLeidos para que el spinner calcule porcentaje.
-     */
     public List<List<String>> leerCsv(Path archivo, char separador, AtomicLong bytesLeidos) throws IOException {
         List<List<String>> filas = new ArrayList<>();
         long total = Files.size(archivo);
@@ -217,95 +212,5 @@ public class tvController {
             System.out.println("\nEl archivo está vacío o no contiene registros válidos.");
         }
     }
-    public List<List<String>> tvbuscar(java.nio.file.Path file, char delimiter) {
-    final java.util.regex.Pattern P1 = java.util.regex.Pattern.compile("^abcdt+$");
-    final java.util.regex.Pattern P2 = java.util.regex.Pattern.compile("^abcd*$");
-
-    List<List<String>> result = new ArrayList<>();
-
-    if (file == null || !java.nio.file.Files.exists(file)) {
-        System.err.println("Archivo no encontrado: " + (file == null ? "null" : file));
-        return result;
-    }
-
-    List<String> lines;
-    try {
-        lines = java.nio.file.Files.readAllLines(file, java.nio.charset.StandardCharsets.UTF_8);
-    } catch (IOException e) {
-        System.err.println("Error leyendo el archivo: " + e.getMessage());
-        return result;
-    }
-
-    if (lines.isEmpty()) {
-        System.err.println("El archivo está vacío.");
-        return result;
-    }
-
-    // eliminar BOM si existe
-    if (lines.get(0).startsWith("\uFEFF")) {
-        lines.set(0, lines.get(0).substring(1));
-    }
-
-    // necesitamos al menos encabezado + 7 filas de datos
-    if (lines.size() < 8) { // 1 encabezado + 7 filas = 8 líneas
-        System.err.println("No hay suficientes filas (se requieren encabezado + 7 filas). Filas totales: " + lines.size());
-        return result;
-    }
-
-    // parsear encabezado (línea 0) y fila 7 (línea 7)
-    List<String> header = parseCsvLine(lines.get(0), delimiter);
-    List<String> row7 = parseCsvLine(lines.get(7), delimiter);
-
-    // evaluar fila7 y construir fila de verdad
-    List<String> truthRow = new ArrayList<>();
-    for (String cell : row7) {
-        String v = cell == null ? "" : cell;
-        boolean truth = P1.matcher(v).matches() || P2.matcher(v).matches();
-        truthRow.add(truth ? "true" : "false");
-    }
-
-    // Alinear columnas (rellenar con "")
-    int cols = Math.max(header.size(), Math.max(row7.size(), truthRow.size()));
-    while (header.size() < cols) header.add("");
-    while (row7.size() < cols) row7.add("");
-    while (truthRow.size() < cols) truthRow.add("false");
-
-    result.add(header);
-    result.add(row7);
-    result.add(truthRow);
-    return result;
-}
-
-/**
- * Helper: parsea una línea CSV simple respetando comillas y comillas escapadas ("").
- * Devuelve la lista de campos. Usa el delimiter pasado (',' o ';', etc.).
- */
-private List<String> parseCsvLine(String line, char delimiter) {
-    List<String> fields = new ArrayList<>();
-    if (line == null) {
-        return fields;
-    }
-    StringBuilder cur = new StringBuilder();
-    boolean inQuotes = false;
-    for (int i = 0; i < line.length(); i++) {
-        char c = line.charAt(i);
-        if (c == '"') {
-            if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                // comilla escapada -> añadir una comilla y saltar la siguiente
-                cur.append('"');
-                i++;
-            } else {
-                inQuotes = !inQuotes;
-            }
-        } else if (c == delimiter && !inQuotes) {
-            fields.add(cur.toString());
-            cur.setLength(0);
-        } else {
-            cur.append(c);
-        }
-    }
-    // añadir último campo
-    fields.add(cur.toString());
-    return fields;
-}
+    
 }

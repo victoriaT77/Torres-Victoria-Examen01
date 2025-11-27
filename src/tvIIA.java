@@ -1,5 +1,6 @@
-import java.nio.file.Path;
+
+import java.util.List;
 
 public interface tvIIA {
-    boolean tvbuscar(String archivoRuta);
+    List<List<String>> tvbuscar(String archivoRuta);
 }

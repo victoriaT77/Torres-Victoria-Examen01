@@ -1,9 +1,13 @@
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import tvHormigas.tvAlimento;
+import tvHormigas.tvHerviboro;
 import tvHormigas.tvIHormiga;
 
 public class tvAntCiberDron implements tvIHormiga, tvIIA {
@@ -16,111 +20,104 @@ public class tvAntCiberDron implements tvIHormiga, tvIIA {
 
     @Override
     public boolean tvcomer(tvAlimento alimento) {
-        // TODO: implementar lógica real
-        return true;
+    return alimento instanceof tvHerviboro;
     }
 
-    /**
-     * Versión original que recibe la ruta como String.
-     */
     @Override
-    public boolean tvbuscar(String archivoRuta) {
-        final java.util.regex.Pattern P1 = java.util.regex.Pattern.compile("^abcdt+$");
-        final java.util.regex.Pattern P2 = java.util.regex.Pattern.compile("^abcd*$");
+    public List<List<String>> tvbuscar(String archivoRuta) {
+        final Pattern P1 = Pattern.compile("^abcdt+$");
+        final Pattern P2 = Pattern.compile("^abcd*$");
+
+        List<List<String>> result = new ArrayList<>();
 
         if (archivoRuta == null || archivoRuta.isBlank()) {
             System.err.println("Ruta de archivo vacía.");
-            return false;
+            return result;
         }
 
         Path file = Path.of(archivoRuta);
-        if (!java.nio.file.Files.exists(file)) {
+        if (!Files.exists(file)) {
             System.err.println("Archivo no encontrado: " + file.toAbsolutePath());
-            return false;
+            return result;
         }
 
         List<String> lines;
         try {
-            lines = java.nio.file.Files.readAllLines(file, java.nio.charset.StandardCharsets.UTF_8);
+            lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
             System.err.println("Error leyendo el archivo: " + e.getMessage());
-            return false;
+            return result;
         }
 
         if (lines.isEmpty()) {
             System.err.println("El archivo está vacío.");
-            return false;
+            return result;
         }
 
-        // eliminar BOM si existe
         if (lines.get(0).startsWith("\uFEFF")) {
             lines.set(0, lines.get(0).substring(1));
         }
 
-        // datos sin encabezado
-        List<String> dataLines = lines.size() > 1 ? lines.subList(1, lines.size()) : java.util.Collections.emptyList();
+        // encabezado (línea 0) usando ';' como delimitador
+        List<String> header = parseCsvLine(lines.get(0), ';');
 
-        // queremos la fila 7 sin contar encabezado -> índice 6 en dataLines
-        int wantedIndex = 6;
-        if (dataLines.size() <= wantedIndex) {
-            System.err.println("No hay suficientes filas de datos. Filas disponibles (sin encabezado): " + dataLines.size());
-            return false;
+        // construir encabezado reducido
+        List<String> headerReduced = new ArrayList<>();
+        headerReduced.add(header.get(0));   // primera columna
+        headerReduced.add("ValorVerdad");   // nueva columna
+
+        result.add(headerReduced);
+
+        // recorrer todas las filas de datos (desde línea 1)
+        List<String> dataLines = lines.subList(1, lines.size());
+        for (String line : dataLines) {
+            List<String> row = parseCsvLine(line, ';');
+
+            // primera columna
+            String firstCol = row.size() > 0 ? row.get(0) : "";
+
+            // evaluar columna 7 (índice 6)
+            String targetCell = row.size() > 6 ? row.get(6) : "";
+            boolean truth = P1.matcher(targetCell).matches() || P2.matcher(targetCell).matches();
+
+            // construir fila reducida
+            List<String> truthRow = new ArrayList<>();
+            truthRow.add(firstCol);
+            truthRow.add(truth ? "true" : "false");
+
+            result.add(truthRow);
         }
 
-        String targetLine = dataLines.get(wantedIndex);
+        return result;
+    }
 
-        // parsear la línea respetando comillas y comillas escapadas (usa ',' como separador por defecto)
+    /**
+     * Helper: parsea una línea CSV simple respetando comillas y comillas escapadas ("").
+     */
+    private List<String> parseCsvLine(String line, char delimiter) {
         List<String> fields = new ArrayList<>();
+        if (line == null) {
+            return fields;
+        }
         StringBuilder cur = new StringBuilder();
         boolean inQuotes = false;
-        for (int i = 0; i < targetLine.length(); i++) {
-            char c = targetLine.charAt(i);
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
             if (c == '"') {
-                if (inQuotes && i + 1 < targetLine.length() && targetLine.charAt(i + 1) == '"') {
-                    // comilla escapada
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
                     cur.append('"');
                     i++;
                 } else {
                     inQuotes = !inQuotes;
                 }
-            } else if (c == ',' && !inQuotes) {
-                // separador fuera de comillas
+            } else if (c == delimiter && !inQuotes) {
                 fields.add(cur.toString());
                 cur.setLength(0);
             } else {
                 cur.append(c);
             }
         }
-        // añadir último campo
         fields.add(cur.toString());
-
-        // evaluar cada celda con los patrones
-        for (String cell : fields) {
-            if (cell == null) continue;
-            String v = cell; // si quieres ignorar espacios: cell = cell.trim();
-            if (P1.matcher(v).matches() || P2.matcher(v).matches()) {
-                System.out.println("Fila 7 (sin encabezado) cumple en la celda: \"" + v + "\"");
-                return true;
-            }
-        }
-
-        System.out.println("Fila 7 (sin encabezado) no cumple ninguno de los patrones.");
-        return false;
-    }
-
-    /**
-     * Sobrecarga que acepta Path y delega a la versión String.
-     */
-    public boolean tvbuscar(Path file) {
-        return tvbuscar(file == null ? null : file.toString());
-    }
-
-    /**
-     * Sobrecarga que acepta Path y separador; delega a la versión String.
-     * (Actualmente ignora el delimiter y usa la lógica existente).
-     */
-    public boolean tvbuscar(Path file, char delimiter) {
-        // Si en el futuro quieres usar 'delimiter', adapta la implementación de tvbuscar(String)
-        return tvbuscar(file == null ? null : file.toString());
+        return fields;
     }
 }
